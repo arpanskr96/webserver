@@ -21,9 +21,10 @@ def main():
 
     # Get in there
     s.bind((host, port))
+    s.listen(5)
 
     while(True):
-        s.accept()
+        connection, address = s.accept()
         result = s.recv(2048)
         print(result)
 
