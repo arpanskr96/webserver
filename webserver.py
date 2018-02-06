@@ -1,5 +1,10 @@
 import sys
 import socket
+import threading # To permit concurrent client connections
+
+
+def requestHandler():
+    pass
 
 
 def main():
@@ -16,17 +21,21 @@ def main():
         print("usage: ./webserver.py <IP of interface> <port>")
         print("defaulting to 0.0.0.0:8080.")
         host = "0.0.0.0"
-        port = 8080
+        port = 80
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    # Get in there
+    # Set up shop
     s.bind((host, port))
-    s.listen(5)
+    s.listen(10)  # concurrent connections possible
 
-    while(True):
-        connection, address = s.accept()
-        result = s.recv(2048)
-        print(result)
+    try:
+        while(True):
+            # Client is an object representing the client
+            # adr is an array of information about the client
+            client, adr = s.accept()  # Accept is a blocking call
+            print(adr[0], adr[1])
+    except:
+        s.close()
 
     # example send data
     # s.send("GET / HTTP/{0}\n\n".format(version))
