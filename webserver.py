@@ -1,7 +1,57 @@
+import subprocess
 import sys
 import socket
 import threading  # To permit concurrent client connections
 import json  # To read config files
+
+
+def getResponse(request):
+    """
+    Generates HTTP response for a request
+    Params:
+        request: an un-sanitized string containing the user's request.
+    Return:
+        String containing response code
+    Potential returns:
+        200, 400, 401, 403, 404, 411, 500, 505
+    """
+    return "HTTP/1.1 200 OK\r\n"
+
+
+def getHeaders(request):
+    """
+    Isolates headers in un-sanitized input
+    Params:
+        request: an un-sanitized string containing the user's request.
+    Return:
+        Dictionary of headers
+    """
+    return "\r\n"
+
+
+def getPhp(page):
+    """
+    Isolates headers in un-sanitized input
+    Params:
+        page: a file that the web server is hosting.
+    Return:
+        The whole file as a string
+    """
+    # with open(page) as p:
+    #    output = p.readlines()
+    result = subprocess.check_output(["php", page])
+    return result
+
+
+def parseRequest(request):
+    """
+    Generates HTTP response for a request
+    Params:
+        request: an un-sanitized string containing the user's request.
+    """
+    response = getResponse(request)
+    headers = getHeaders(request)
+    return response + headers
 
 
 def getConfig(configfile):
@@ -25,9 +75,9 @@ def requestHandler(client):
     Return:
         None
     """
-    print("Received: {}".format(client.recv(2048)))
-    response = "HTTP/1.1 200 OK\r\n\r\n"
-    body = "Hello World!"
+    response = parseRequest(client.recv(2048))
+
+    body = getPhp("basic.php") + "\r\n\r\n"
     client.send(response + body)
     # Because HTTP is connectionless we close it at the end of every action
     client.close()
