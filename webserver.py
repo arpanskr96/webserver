@@ -52,7 +52,13 @@ def parseRequest(request):
     Params:
         request: an un-sanitized string containing the user's request.
     """
-    response = getResponse(request)
+    print(request[:4])
+    if request[:4] == "GET ":
+        response = getResponse(request)
+    elif request[:4] == "POST":
+        response = getResponse(request)
+    else:
+        return "HTTP/1.1 400 Bad Request"
     headers = getHeaders(request)
     return response + headers
 
@@ -83,11 +89,11 @@ def requestHandler(client, logger):
     except:
         logger.error("Could not parse request.")
 
-    try:
-        body = getPhp("basic.php") + "\r\n\r\n"
-    except:
-        logger.error("Could not process PHP script.")
-    client.send(response + body)
+    # try:
+    #    body = getPhp("basic.php") + "\r\n\r\n"
+    # except:
+    #    logger.error("Could not process PHP script.")
+    client.send(response)
     # Because HTTP is connectionless we close it at the end of every action
     client.close()
 
@@ -99,7 +105,7 @@ def main():
     Return:
         None
     """
-    logger = logging.getLogger('webserver')
+    logger = logging.getLogger('webserver') # set up logger for easy logging.
     hdlr = logging.FileHandler('server.log')
     formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
     hdlr.setFormatter(formatter)
@@ -108,7 +114,6 @@ def main():
     try:
         conf = getConfig(sys.argv[1])
     except IndexError:
-        print("usage: ./webserver.py <configfile>")
         print("Defaulting to \"webserver.cfg\"")
         conf = getConfig("webserver.cfg")
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
