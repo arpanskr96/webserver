@@ -3,6 +3,7 @@ import sys
 import socket
 import threading  # To permit concurrent client connections
 import json  # To read config files
+import logging
 
 
 def getResponse(request):
@@ -15,7 +16,9 @@ def getResponse(request):
     Potential returns:
         200, 400, 401, 403, 404, 411, 500, 505
     """
-    return "HTTP/1.1 200 OK\r\n"
+    version = "HTTP/1.1 "
+    response = "200 OK"
+    return version + response + "\r\n"
 
 
 def getHeaders(request):
@@ -67,7 +70,7 @@ def getConfig(configfile):
     return data
 
 
-def requestHandler(client):
+def requestHandler(client, logger):
     """
     A thread used to parse and respond to a particular HTTP request.
     Params:
@@ -75,9 +78,15 @@ def requestHandler(client):
     Return:
         None
     """
-    response = parseRequest(client.recv(2048))
+    try:
+        response = parseRequest(client.recv(2048))
+    except:
+        logger.error("Could not parse request.")
 
-    body = getPhp("basic.php") + "\r\n\r\n"
+    try:
+        body = getPhp("basic.php") + "\r\n\r\n"
+    except:
+        logger.error("Could not process PHP script.")
     client.send(response + body)
     # Because HTTP is connectionless we close it at the end of every action
     client.close()
@@ -90,6 +99,12 @@ def main():
     Return:
         None
     """
+    logger = logging.getLogger('webserver')
+    hdlr = logging.FileHandler('server.log')
+    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    hdlr.setFormatter(formatter)
+    logger.addHandler(hdlr)
+    logger.setLevel(logging.INFO)
     try:
         conf = getConfig(sys.argv[1])
     except IndexError:
@@ -98,8 +113,7 @@ def main():
         conf = getConfig("webserver.cfg")
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    # Set up shop
-    s.bind((conf["host"], int(conf["port"])))
+    s.bind((conf["host"], int(conf["port"])))  # Bind to port
     s.listen(10)  # concurrent connections possible
 
     try:
@@ -107,14 +121,15 @@ def main():
             # Client is an object representing the client
             # adr is an array of information about the client
             client, adr = s.accept()  # Accept is a blocking call
+            logger.info("New connection from {0}:{1}".format(adr[0], adr[1]))
 
             # requestHandler is the function being run in the thread
             # args are the parameters it takes
-            # Yes you need the dumb comma because it needs to be iterable
-            threading.Thread(target=requestHandler, args=(client,)).start()
+            # You need the comma because it needs to be iterable
+            threading.Thread(target=requestHandler, args=(client, logger)).start()
 
     except socket.error, exc:
-        print("Caught exception socket.error : {}".format(exc))
+        logger.error("Caught exception socket.error: {}".format(exc))
 
 
 if __name__ == "__main__":
