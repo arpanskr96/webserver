@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 import subprocess
 import sys
 import socket
@@ -76,7 +78,7 @@ def getConfig(configfile):
     return data
 
 
-def requestHandler(client, logger):
+def requestHandler(client, goodlog, badlog):
     """
     A thread used to parse and respond to a particular HTTP request.
     Params:
@@ -87,12 +89,8 @@ def requestHandler(client, logger):
     try:
         response = parseRequest(client.recv(2048))
     except:
-        logger.error("Could not parse request.")
+        badlog.error("Could not parse request.")
 
-    # try:
-    #    body = getPhp("basic.php") + "\r\n\r\n"
-    # except:
-    #    logger.error("Could not process PHP script.")
     client.send(response)
     # Because HTTP is connectionless we close it at the end of every action
     client.close()
@@ -105,17 +103,34 @@ def main():
     Return:
         None
     """
-    logger = logging.getLogger('webserver') # set up logger for easy logging.
-    hdlr = logging.FileHandler('server.log')
-    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-    hdlr.setFormatter(formatter)
-    logger.addHandler(hdlr)
-    logger.setLevel(logging.INFO)
     try:
         conf = getConfig(sys.argv[1])
     except IndexError:
-        print("Defaulting to \"webserver.cfg\"")
-        conf = getConfig("webserver.cfg")
+        print("Defaulting to \"./webserver.blob\"")
+        conf = getConfig("webserver.blob")
+
+    if conf["root"][-1] != "/":
+        conf["root"] += "/"
+    glog = conf["root"] + conf["goodlog"]
+    blog = conf["root"] + conf["badlog"]  # create full path to log files from config
+    # Set up both log file outputs
+    goodlog = logging.getLogger('good_logs')  # set up logger for easy logging.
+    goodhdlr = logging.FileHandler(glog)
+    goodformatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    goodhdlr.setFormatter(goodformatter)
+    goodlog.addHandler(goodhdlr)
+    goodlog.setLevel(logging.INFO)
+    badlog = logging.getLogger('bad_logs')  # set up logger for easy logging.
+    badhdlr = logging.FileHandler(blog)
+    badformatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    badhdlr.setFormatter(badformatter)
+    badlog.addHandler(badhdlr)
+    badlog.setLevel(logging.INFO)
+
+    badlog.info("test")
+    goodlog.info("test")
+    exit()
+
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     s.bind((conf["host"], int(conf["port"])))  # Bind to port
@@ -126,15 +141,15 @@ def main():
             # Client is an object representing the client
             # adr is an array of information about the client
             client, adr = s.accept()  # Accept is a blocking call
-            logger.info("New connection from {0}:{1}".format(adr[0], adr[1]))
+            goodlog.info("New connection from {0}:{1}".format(adr[0], adr[1]))
 
             # requestHandler is the function being run in the thread
             # args are the parameters it takes
             # You need the comma because it needs to be iterable
-            threading.Thread(target=requestHandler, args=(client, logger)).start()
+            threading.Thread(target=requestHandler, args=(client, goodlog, badlog)).start()
 
     except socket.error, exc:
-        logger.error("Caught exception socket.error: {}".format(exc))
+        badlog.error("Caught exception socket.error: {}".format(exc))
 
 
 if __name__ == "__main__":
