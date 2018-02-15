@@ -71,18 +71,23 @@ def getResponse(method, headers, body):
     Potential codes:
         200, 400, 401, 403, 404, 411, 500, 505
     """
+    global disabled
     if method[2] != "HTTP/1.1":
         return "HTTP/1.1 400 bad request or something like this\r\n\r\nBad request"
-    if method[0] == "GET":
+    if method[0] == "GET" and "GET" not in disabled:
         code, body = getRequest(method[1])
-    elif method[0] == "POST":
+    elif method[0] == "POST" and "POST" not in disabled:
         pass
-    elif method[0] == "PUT":
+    elif method[0] == "PUT" and "PUT" not in disabled:
         pass
-    elif method[0] == "DELETE":
+    elif method[0] == "DELETE" and "DELETE" not in disabled:
         pass
-    elif method[0] == "CONNECT":
+    elif method[0] == "CONNECT" and "CONNECT" not in disabled:
         pass
+    else:
+        code = "500"
+        with open(root + code + ".html") as f:
+            page = f.read()
     return "HTTP/1.1 " + code + "\r\n\r\n" + body
 
 
@@ -207,6 +212,9 @@ def main():
     global root
     root = conf["root"]
     goodlog, badlog = initLogs(conf["goodlog"], conf["badlog"])
+
+    global disabled
+    disabled = conf["disabled"]
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
