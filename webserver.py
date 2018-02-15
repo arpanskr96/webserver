@@ -1,37 +1,106 @@
 #!/usr/bin/python
 
-import subprocess
-import sys
-import socket
+import signal  # Internal signal processing
+import subprocess  # Scripting
+import sys  # duh
+import socket  # duh
 import threading  # To permit concurrent client connections
 import json  # To read config files
-import logging
+import logging  # yep this is here too.
 
 
-def getResponse(request):
+def getRequest(method):
+    """
+    GET request handler
+    """
+    print(method)
+    global root
+    code = "200"
+    if method == "":
+        method = "index.html"
+    try:
+        with open(root + method) as f:
+            page = f.read()
+    except (IOError, OSError) as e:
+        if e.errno == 2:  # File not found
+            code = "404"
+        elif e.errno == 13:  # Permission denied
+            code = "403"
+        else:
+            code = "500"
+        with open(root + code + ".html") as f:
+            page = f.read()
+    return code, page
+
+
+def postRequest():
+    """
+    POST request handler
+    """
+    pass
+
+
+def connectRequest():
+    """
+    CONNECT request handler
+    """
+    pass
+
+
+def putRequest():
+    """
+    PUT request handler
+    """
+    pass
+
+
+def deleteRequest():
+    """
+    DELETE request handler
+    """
+    pass
+
+
+def getResponse(method, headers, body):
     """
     Generates HTTP response for a request
     Params:
         request: an un-sanitized string containing the user's request.
     Return:
         String containing response code
-    Potential returns:
+    Potential codes:
         200, 400, 401, 403, 404, 411, 500, 505
     """
-    version = "HTTP/1.1 "
-    response = "200 OK"
-    return version + response + "\r\n"
+    if method[2] != "HTTP/1.1":
+        return "HTTP/1.1 400 bad request or something like this\r\n\r\nBad request"
+    if method[0] == "GET":
+        code, body = getRequest(method[1])
+    elif method[0] == "POST":
+        pass
+    elif method[0] == "PUT":
+        pass
+    elif method[0] == "DELETE":
+        pass
+    elif method[0] == "CONNECT":
+        pass
+    return "HTTP/1.1 " + code + "\r\n\r\n" + body
 
 
-def getHeaders(request):
+def getHeaders(headerlist):
     """
     Isolates headers in un-sanitized input
     Params:
-        request: an un-sanitized string containing the user's request.
+        headerlist: an un-sanitized list containing the user's header options.
     Return:
         Dictionary of headers
     """
-    return "\r\n"
+    dic = {}
+    for header in headerlist:
+        header = header.split(":")
+        for item in header:
+            item = item.strip()
+        dic[header[0]] = header[1]
+    return dic
 
 
 def getPhp(page):
@@ -42,8 +111,6 @@ def getPhp(page):
     Return:
         The whole file as a string
     """
-    # with open(page) as p:
-    #    output = p.readlines()
     result = subprocess.check_output(["php", page])
     return result
 
@@ -56,11 +123,16 @@ def parseRequest(request):
     Returns:
         (method, headers, body)
     """
-    request = request.split("\r\n\r\n")
-    headers = request[0]
-    headers = headers.split("\r\n")
-    method = headers[0].split(" ")
-    return(method, headers[1:], request[1:])
+    try:
+        request = request.split("\r\n\r\n")
+        headers = request[0]
+        headers = headers.split("\r\n")
+        method = headers[0].split(" ")
+        method[1] = method[1][1:]
+    except:
+        return
+    headers = getHeaders(headers[1:])  # This will change headers to a dictionary.
+    return(method, headers, request[1:])
 
 
 def getConfig(configfile):
@@ -84,7 +156,8 @@ def requestHandler(client, goodlog, badlog):
     Return:
         None
     """
-    response = parseRequest(client.recv(65535))
+    method, headers, body = parseRequest(client.recv(65535))
+    response = getResponse(method, headers, body)
 
     client.send(response)
     # Because HTTP is connectionless we close the connection at the end of every action
@@ -131,13 +204,25 @@ def main():
 
     if conf["root"][-1] != "/":
         conf["root"] += "/"
-    glog = conf["root"] + conf["goodlog"]
-    blog = conf["root"] + conf["badlog"]  # create full path to log files from config
-    goodlog, badlog = initLogs(glog, blog)
+    global root
+    root = conf["root"]
+    goodlog, badlog = initLogs(conf["goodlog"], conf["badlog"])
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    s.bind((conf["host"], int(conf["port"])))  # Bind to port
+    def signal_handler(signal, frame):
+            print('\nClosing server.\n')
+            s.close()
+            sys.exit(0)
+    signal.signal(signal.SIGINT, signal_handler)
+
+    try:
+        s.bind((conf["host"], int(conf["port"])))  # Bind to port
+    except socket.error, e:
+        print("Could not bind to port: " + str(e))
+        sys.exit(1)
+
+
     s.listen(10)  # concurrent connections possible
 
     try:
@@ -153,7 +238,7 @@ def main():
             threading.Thread(target=requestHandler, args=(client, goodlog, badlog)).start()
 
     except socket.error, exc:
-        badlog.error("Caught exception socket.error: {}".format(exc))
+        badlog.error("Caught exception socket.error: {}".format(exc.message))
 
 
 if __name__ == "__main__":
