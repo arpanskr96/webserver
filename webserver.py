@@ -52,17 +52,15 @@ def parseRequest(request):
     """
     Generates HTTP response for a request
     Params:
-        request: an un-sanitized string containing the user's request.
+        request: an un-sanitized string containing the whole user request.
+    Returns:
+        (method, headers, body)
     """
-    print(request[:4])
-    if request[:4] == "GET ":
-        response = getResponse(request)
-    elif request[:4] == "POST":
-        response = getResponse(request)
-    else:
-        return "HTTP/1.1 400 Bad Request"
-    headers = getHeaders(request)
-    return response + headers
+    request = request.split("\r\n\r\n")
+    headers = request[0]
+    headers = headers.split("\r\n")
+    method = headers[0].split(" ")
+    return(method, headers[1:], request[1:])
 
 
 def getConfig(configfile):
@@ -74,7 +72,7 @@ def getConfig(configfile):
         Dictionary linking settings keywords to definitions
     """
     with open(configfile) as f:
-        data = json.load(f)
+        data = json.load(f)  # load the whole config file
     return data
 
 
@@ -86,14 +84,36 @@ def requestHandler(client, goodlog, badlog):
     Return:
         None
     """
-    try:
-        response = parseRequest(client.recv(2048))
-    except:
-        badlog.error("Could not parse request.")
+    response = parseRequest(client.recv(65535))
 
     client.send(response)
-    # Because HTTP is connectionless we close it at the end of every action
+    # Because HTTP is connectionless we close the connection at the end of every action
     client.close()
+
+
+def initLogs(glog, blog):
+    """
+    Initializes logger objects from given strings
+    Params:
+        goodlog: string of good log file location
+        badlog: string of bad log file location
+    Return:
+        (goodlog, badlog)
+    """
+    # Set up both log file outputs
+    goodlog = logging.getLogger('good_logs')  # set up logger for easy logging.
+    goodhdlr = logging.FileHandler(glog)
+    goodformatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    goodhdlr.setFormatter(goodformatter)
+    goodlog.addHandler(goodhdlr)
+    goodlog.setLevel(logging.INFO)
+    badlog = logging.getLogger('bad_logs')  # set up logger for easy logging.
+    badhdlr = logging.FileHandler(blog)
+    badformatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    badhdlr.setFormatter(badformatter)
+    badlog.addHandler(badhdlr)
+    badlog.setLevel(logging.INFO)
+    return (goodlog, badlog)
 
 
 def main():
@@ -113,23 +133,7 @@ def main():
         conf["root"] += "/"
     glog = conf["root"] + conf["goodlog"]
     blog = conf["root"] + conf["badlog"]  # create full path to log files from config
-    # Set up both log file outputs
-    goodlog = logging.getLogger('good_logs')  # set up logger for easy logging.
-    goodhdlr = logging.FileHandler(glog)
-    goodformatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-    goodhdlr.setFormatter(goodformatter)
-    goodlog.addHandler(goodhdlr)
-    goodlog.setLevel(logging.INFO)
-    badlog = logging.getLogger('bad_logs')  # set up logger for easy logging.
-    badhdlr = logging.FileHandler(blog)
-    badformatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-    badhdlr.setFormatter(badformatter)
-    badlog.addHandler(badhdlr)
-    badlog.setLevel(logging.INFO)
-
-    badlog.info("test")
-    goodlog.info("test")
-    exit()
+    goodlog, badlog = initLogs(glog, blog)
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
