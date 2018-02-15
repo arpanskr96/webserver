@@ -69,11 +69,20 @@ def getResponse(method, headers, body):
     Return:
         String containing response code
     Potential codes:
-        200, 400, 401, 403, 404, 411, 500, 505
+        200, All is well
+        400, Bad request
+        401, Unauthorized
+        _403_, Forbidden
+        _404_, File not found
+        411, Length required
+        _500_, Internal server error
+        505 HTTP version not supported
     """
     global disabled
     if method[2] != "HTTP/1.1":
-        return "HTTP/1.1 400 bad request or something like this\r\n\r\nBad request"
+        code = "505"
+        body = "HTTP version not supported"
+        return "HTTP/1.1 " + code + "\r\n\r\n" + body
     if method[0] == "GET" and "GET" not in disabled:
         code, body = getRequest(method[1])
     elif method[0] == "POST" and "POST" not in disabled:
@@ -108,7 +117,7 @@ def getHeaders(headerlist):
     return dic
 
 
-def getPhp(page):
+def getPhp(phpfile):
     """
     Isolates headers in un-sanitized input
     Params:
@@ -229,7 +238,6 @@ def main():
     except socket.error, e:
         print("Could not bind to port: " + str(e))
         sys.exit(1)
-
 
     s.listen(10)  # concurrent connections possible
 
