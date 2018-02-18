@@ -9,7 +9,7 @@ import json  # To read config files
 import logging  # yep this is here too.
 
 
-def getRequest(method):
+def getRequest(method, headers):
     """
     GET request handler
     Params:
@@ -18,7 +18,6 @@ def getRequest(method):
         code - HTTP code as string
         page - page the user will view, as a string
     """
-    print(method)
     global root
     code = "200"
     if method == "":
@@ -38,11 +37,21 @@ def getRequest(method):
     return code, page
 
 
-def postRequest():
+def postRequest(method, headers, requestbody):
     """
     POST request handler
     """
-    pass
+    global root
+    try:
+        if int(headers["Content-Length"]) != len(requestbody):
+            raise KeyError
+    except KeyError:
+        code = "411"
+        with open(root + code + ".html") as f:
+            body = f.read()
+        return code, body
+    # the rest of the function
+    return code, body
 
 
 def connectRequest():
@@ -66,7 +75,7 @@ def deleteRequest():
     pass
 
 
-def getResponse(method, headers, body):
+def getResponse(method, headers, requestbody):
     """
     Generates HTTP response for a request
     Params:
