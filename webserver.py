@@ -12,6 +12,11 @@ import logging  # yep this is here too.
 def getRequest(method):
     """
     GET request handler
+    Params:
+        method - String representing the type of request
+    Returns:
+        code - HTTP code as string
+        page - page the user will view, as a string
     """
     print(method)
     global root
@@ -76,7 +81,7 @@ def getResponse(method, headers, body):
         _404_, File not found
         411, Length required
         _500_, Internal server error
-        505 HTTP version not supported
+        _505_ HTTP version not supported
     """
     global disabled
     if method[2] != "HTTP/1.1":
